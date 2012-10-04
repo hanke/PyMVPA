@@ -6,17 +6,14 @@
 #   copyright and license terms.
 #
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ##
-""""""
+"""Query various information about a PyMVPA installation.
+
+If no option is given, a  useful subset of the available information is printed.
+"""
 
 import mvpa2
 
 __docformat__ = 'restructuredtext'
-
-parser_args = {
-    'description':
-"""Query various information about this PyMVPA installation. If no option is
-given useful subset of the available information is printed."""
-}
 
 def setup_parser(parser):
     excl = parser.add_mutually_exclusive_group()
@@ -25,6 +22,11 @@ def setup_parser(parser):
     if __debug__:
         excl.add_argument('--debug', action='store_true',
                           help='list available debug channels')
+    excl.add_argument(
+            '--learner-warehouse', nargs='*', default=False, metavar='TAG',
+            help="""list available algorithms in the learner warehouse.
+            Optionally, an arbitray number of tags can be specified to
+            constrain the listing to learners with matching tags.""")
     return parser
 
 def run(args):
@@ -32,5 +34,8 @@ def run(args):
         print mvpa2.wtf(include=['externals'])
     elif args.debug:
         mvpa2.debug.print_registered()
+    elif not args.learner_warehouse is False:
+        from mvpa2.clfs.warehouse import clfswh
+        clfswh.print_registered(*args.learner_warehouse)
     else:
         print mvpa2.wtf()
