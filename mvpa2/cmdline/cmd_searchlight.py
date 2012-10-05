@@ -20,9 +20,11 @@ import argparse
 from mvpa2.base import verbose
 if __debug__:
     from mvpa2.base import debug
+#from mvpa2.cmdline.helpers \
+        #import parser_add_common_args, parser_add_common_opt, args2datasets, strip_from_docstring, \
+               #param2arg, ca2arg
 from mvpa2.cmdline.helpers \
-        import parser_add_common_args, args2datasets, strip_from_docstring, \
-               param2arg, ca2arg
+        import parser_add_common_args, parser_add_common_opt
 
 # import routines specific for this analysis
 from mvpa2.datasets.mri         import map2nifti
@@ -38,43 +40,45 @@ parser_args = {
     'description': '''Apply a searchlight analysis to a data set
 that is already preprocessed and stored as Nifti file.''',
     'epilog': '''Example Usage:
-        pymvpa2 searchlight pp4D_data --attr attributes.txt
-        pymvpa2 searchlight pp4D_data --attr attributes.txt --clf SLMR --rad 5 --cvtype 2
+        pymvpa2 searchlight pp4D_data attributes.txt
+        pymvpa2 searchlight pp4D_data attributes.txt --clf SLMR --rad 5 --part 'n-2'
 ''',
     'formatter_class': argparse.RawDescriptionHelpFormatter
 } # WZ TODO: use Haxby data for example usage - How make data path variable available in BASH?
 
 # define command line arguments
-def setup_parser(parser):
+def setup_parser(inputargs):
     # order of calls is relevant!
     # WZ XXX: How to ensure that all arguments are defined needed by required helper functions?
 
-    inputargs = parser.add_argument_group('input data arguments')
-    parser_add_common_args(inputargs, pos=['multidata'], opt=['multimask'])
-    inputargs.add_argument('ds',  help='data set')
-    #inputargs.add_argument('-m', '--mask',  default=None, help='mask file')
-    inputargs.add_argument('-a', '--attr',  required=True, help='attribute file')
-    inputargs.add_argument('--nozscr',   action='store_false', help='do not apply z-scoring to the data set')
-    inputargs.add_argument('-s', '--subset', default=None, help='Create an additional volume containing the numbers of voxel within the searchlight sphere.')
-    inputargs.add_argument('--mc', '--mcpar',  default=None, help='Motion correction parameter file from the mcflirt tool of the FSL package.')
+    parser_add_common_args(inputargs, pos=['multidata'])
+    #inputargs.add_argument('ds',  help='data set')
+    inputargs.add_argument('attr',  help='attribute file')
+
+    # WZ XXX: add_argument_group conflicts with argument helper functions
+    inputargs = inputargs.add_argument_group('input data arguments')
     inputargs.add_argument('--dtr',   action='store_true', help='apply detrending on the data set.') # WZ TODO: specify polynomal order?
+    inputargs.add_argument('--mc', '--mcpar',  default=None, help='Motion correction parameter file from the mcflirt tool of the FSL package.')
+    inputargs.add_argument('--nozscr',   action='store_false', help='do not apply z-scoring to the data set')
     inputargs.add_argument('--avrg',  action='store_true', help='use a chunk wise average of the targets for the analysis')
+    inputargs.add_argument('-s', '--subset', default=None, help='Create an additional volume containing the numbers of voxel within the searchlight sphere.')
 
-    inputargs = parser.add_argument_group('classification options')
-    inputargs.add_argument('-c', '--clf',    default="LinearCSVMC", help='applied classifier')
-                                                    #currently implemented: "LinearCSVMC", "LinearNuSVMC", "SMLR", "GNB", "kNN", "BLR", "GPR",
-                                                    #"glmnet", "GPR", "PLR", "RbfCSVMC", "RbfNuSVMC"')
-    inputargs.add_argument('-t', '--cvtype', default=1, type=int, help='number of chunks used as test set')
+    inputargs = inputargs.add_argument_group('classification options')
 
-    inputargs = parser.add_argument_group('searchlight options')
+    parser_add_common_opt(inputargs, 'classifier',  names=('-c', '--clf'))
+    parser_add_common_opt(inputargs, 'partitioner', names=('-p', '--part'))
+
+    inputargs = inputargs.add_argument_group('searchlight options')
     inputargs.add_argument('-r', '--rad',    default=3, type=int, help='sphere radius in voxel')
     inputargs.add_argument('-v', '--nvxl',   action='store_true', help='Create an additional volume containing the numbers of voxel within the searchlight sphere.')
     inputargs.add_argument('-n', '--nproc',  dest='NumProc', default=1, type=int, help='number of threads claimed for the analysis')
 
-    inputargs = parser.add_argument_group('output options')
+    inputargs = inputargs.add_argument_group('output options')
+
     inputargs.add_argument('-d', '--odir',   default=os.getcwd(), help='output directory')
-    inputargs.add_argument('-o', '--onm',    default="MVPA_SearchLight.nii.gz", help='output file name stem')
-    inputargs.add_argument('-p', '--plot',   action='store_true', help='Create plots for sample distance and accuracy histograms')
+    parser_add_common_opt(inputargs, 'output_prefix')
+    #inputargs.add_argument('-o', '--onm',    default="MVPA_SearchLight.nii.gz", help='output file name stem')
+    inputargs.add_argument('--plot',   action='store_true', help='Create plots for sample distance and accuracy histograms')
 
 
 def chose_clf(clfstr):  # WZ: put this together with the input arguments to the helpers? Add classifier specific arguments?
