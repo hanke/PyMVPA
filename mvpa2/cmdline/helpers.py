@@ -31,6 +31,16 @@ def parser_add_common_args(parser, pos=None, opt=None, **kwargs):
             else:
                 parser.add_argument(arg_tmpl[i], **arg_kwargs)
 
+def parser_add_common_opt(parser, opt, names=None, **kwargs):
+    from mvpa2.cmdline import common_args
+    opt_tmpl = getattr(common_args, opt)
+    opt_kwargs = opt_tmpl[2].copy()
+    opt_kwargs.update(kwargs)
+    if names is None:
+        parser.add_argument(*arg_tmpl[1], **opt_kwargs)
+    else:
+        parser.add_argument(*names, **opt_kwargs)
+
 def _load_if_hdf5(arg):
     # just try it, who knows whether we can trust file extensions and whether
     # we have HDF5
@@ -259,3 +269,23 @@ def script2obj(filepath):
         return locals.values()[0]
     else:
         return locals['obj']
+
+def arg2partitioner(arg):
+    arg = arg.lower()
+    import mvpa2.generators.partition as part
+    if arg == 'oddeven':
+        return part.OddEvenPartitioner()
+    elif arg == 'half':
+        return part.HalfPartitioner()
+    elif arg.startswith('group-'):
+        ngroups = int(arg[6:])
+        return part.NGroupPartitioner(ngroups)
+    elif arg.startswith('n-'):
+        nfolds = int(arg[2:])
+        return part.NFoldPartitioner(nfolds)
+    elif os.path.isfile(arg) and arg.endswith('.py'):
+        # arg is a script filepath
+        return script2obj(arg)
+    else:
+        raise argparse.ArgumentTypeError(
+            "'%s' does not describe a supported partitioner type" % arg)
