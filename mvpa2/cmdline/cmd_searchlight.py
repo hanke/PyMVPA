@@ -47,77 +47,45 @@ that is already preprocessed and stored as Nifti file.''',
 } # WZ TODO: use Haxby data for example usage - How make data path variable available in BASH?
 
 # define command line arguments
-def setup_parser(inputargs):
+def setup_parser(parser):
     # order of calls is relevant!
     # WZ XXX: How to ensure that all arguments are defined needed by required helper functions?
 
-    parser_add_common_args(inputargs, pos=['multidata'])
-    #inputargs.add_argument('ds',  help='data set')
-    inputargs.add_argument('attr',  help='attribute file')
+    parser_add_common_args(parser, pos=['multidata'])
+    parser.add_argument('attr',  help='attribute file')
 
-    # WZ XXX: add_argument_group conflicts with argument helper functions
-    inputargs = inputargs.add_argument_group('input data arguments')
-    inputargs.add_argument('--dtr',   action='store_true', help='apply detrending on the data set.') # WZ TODO: specify polynomal order?
-    inputargs.add_argument('--mc', '--mcpar',  default=None, help='Motion correction parameter file from the mcflirt tool of the FSL package.')
-    inputargs.add_argument('--nozscr',   action='store_false', help='do not apply z-scoring to the data set')
-    inputargs.add_argument('--avrg',  action='store_true', help='use a chunk wise average of the targets for the analysis')
-    inputargs.add_argument('-s', '--subset', default=None, help='Create an additional volume containing the numbers of voxel within the searchlight sphere.')
+    inputargs = parser.add_argument_group('input data arguments')
+    parser_add_common_opt(inputargs, 'multimask', names=('-m', '--mask'))
 
-    inputargs = inputargs.add_argument_group('classification options')
+    inputargs.add_argument('--dtr',   action='store_true',
+                           help='apply detrending on the data set.') # WZ TODO: specify polynomal order?
+    inputargs.add_argument('--mc', '--mcpar',  default=None,
+                           help='Motion correction parameter file from the mcflirt tool of the FSL package.')
+    inputargs.add_argument('--no_z', dest='zscr',   action='store_false',
+                           help='do not apply z-scoring to the data set')
+    inputargs.add_argument('--avrg',  action='store_true',
+                           help='use a chunk wise average of the targets for the analysis')
+    inputargs.add_argument('-s', '--subset', default=None,
+                           help='Create an additional volume containing the numbers of voxel within the searchlight sphere.')
 
-    parser_add_common_opt(inputargs, 'classifier',  names=('-c', '--clf'))
-    parser_add_common_opt(inputargs, 'partitioner', names=('-p', '--part'))
+    clfopt = parser.add_argument_group('classification options')
+    parser_add_common_opt(clfopt, 'classifier',  names=('-c', '--clf'))
+    parser_add_common_opt(clfopt, 'partitioner', names=('-p', '--part'))
 
-    inputargs = inputargs.add_argument_group('searchlight options')
-    inputargs.add_argument('-r', '--rad',    default=3, type=int, help='sphere radius in voxel')
-    inputargs.add_argument('-v', '--nvxl',   action='store_true', help='Create an additional volume containing the numbers of voxel within the searchlight sphere.')
-    inputargs.add_argument('-n', '--nproc',  dest='NumProc', default=1, type=int, help='number of threads claimed for the analysis')
+    slopt = parser.add_argument_group('searchlight options')
+    slopt.add_argument('-r', '--rad',    default=3, type=int,
+                        help='sphere radius in voxel')
+    slopt.add_argument('-v', '--nvxl',   action='store_true',
+                        help='Create an additional volume containing the numbers of voxel within the searchlight sphere.')
+    slopt.add_argument('-n', '--nproc',  dest='NumProc', default=1, type=int,
+                        help='number of threads claimed for the analysis')
 
-    inputargs = inputargs.add_argument_group('output options')
-
-    inputargs.add_argument('-d', '--odir',   default=os.getcwd(), help='output directory')
-    parser_add_common_opt(inputargs, 'output_prefix')
-    #inputargs.add_argument('-o', '--onm',    default="MVPA_SearchLight.nii.gz", help='output file name stem')
-    inputargs.add_argument('--plot',   action='store_true', help='Create plots for sample distance and accuracy histograms')
-
-
-def chose_clf(clfstr):  # WZ: put this together with the input arguments to the helpers? Add classifier specific arguments?
-    if "LinearCSVMC" in clfstr:
-        import mvpa2.clfs.svm.LinearCSVMC
-        clf = LinearCSVMC()
-    if "LinearNuSVMC" in clfstr:
-        import mvpa2.clfs.svm.LinearNuSVMC
-        clf = LinearNuSVMC()
-    if "SMLR" in clfstr:
-        import mvpa2.clfs.smlr.SMLR
-        clf = SMLR()
-    if "GNB" in clfstr:
-        import mvpa2.clfs.gnb.GNB
-        clf = GNB()
-    if "kNN" in clfstr:
-        import mvpa2.clfs.knn.kNN
-        clf = kNN()
-    elif "BLR" in clfstr:
-        import mvpa2.clfs.blr.BLR
-        clf = BLR()
-    elif "glmnet" in clfstr:
-        import mvpa2.clfs.glmnet.GLMNET_C
-        clf = GLMNET_C()
-    elif "GPR" in clfstr:
-        import mvpa2.clfs.gpr.GPR
-        clf = GPR()
-    elif "PLR" in clfstr:
-        import mvpa2.clfs.plr.PLR
-        clf = PLR()
-    elif "RbfCSVMC" in clfstr:
-        import mvpa2.clfs.svm.RbfCSVMC
-        clf = RbfCSVMC()
-    elif "RbfNuSVMC" in clfstr:
-        import mvpa2.clfs.svm.RbfNuSVMC
-        clf = RbfNuSVMC()
-    else:
-        print("ERROR: unknown classifier!")
-    return clf
+    outopts = parser.add_argument_group('output options')
+    outopts.add_argument('-d', '--odir',   default=os.getcwd(),
+                         help='output directory')
+    parser_add_common_opt(outopts, 'output_prefix')
+    outopts.add_argument('--plot',   action='store_true',
+                         help='Create plots for sample distance and accuracy histograms')
 
 # prepare data set for analysis
 # WZ XXX: This is something for the helpers again (or is already there and I was to f...g s...d).
@@ -127,7 +95,7 @@ def prep_nifti_ds(args):
     from mvpa2.mappers.detrend import poly_detrend
 
     attr = SampleAttributes(args.attr)
-    ds = fmri_dataset(args.ds, targets=attr.targets, chunks=attr.chunks, mask=args.mask)
+    ds = fmri_dataset(args.data, targets=attr.targets, chunks=attr.chunks, mask=args.mask) # WZ TODO: check if mask is specified
     verbose(1, "Data set loaded.")
     verbose(2, "loaded data set: %i" % args.ds)
     verbose(2, "attribute file:  %i" % args.attr)
@@ -135,11 +103,10 @@ def prep_nifti_ds(args):
     if not args.mcpar == None:
         from mvpa2.misc.fsl.base import McFlirtParams
         mc = McFlirtParams(path.join('mvpa2', 'data', 'bold_mc.par'))
-        # merge the correction parameters into the dataset itself
         for param in mc:
             ds.sa['mc_' + param] = mc[param]
         res = poly_detrend(ds, opt_regs=['mc_x',    'mc_y',    'mc_z',
-                                        'mc_rot1', 'mc_rot2', 'mc_rot3'])
+                                         'mc_rot1', 'mc_rot2', 'mc_rot3'])
         verbose(1, "Applied polynomial detrending includng motion correction parameter.")
         verbose(2, "MC parameter file:  %i" % args.mcpar)
 
@@ -147,7 +114,7 @@ def prep_nifti_ds(args):
         poly_detrend(ds, chunks_attr='chunks')
         verbose(1, "Applied polynomial detrending.")
 
-    if args.nozscr:
+    if args.zscr:
         zscore(ds, chunks_attr='chunks')  # apply z-scoring run-wise (TODO: add option to specify a baseline condition?)
         verbose(1, "Applied z scoring.")
 
