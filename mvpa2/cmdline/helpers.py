@@ -57,7 +57,7 @@ def parser_add_common_opt(parser, opt, names=None, **kwargs):
     opt_kwargs = opt_tmpl[2].copy()
     opt_kwargs.update(kwargs)
     if names is None:
-        parser.add_argument(*arg_tmpl[1], **opt_kwargs)
+        parser.add_argument(*opt_tmpl[1], **opt_kwargs)
     else:
         parser.add_argument(*names, **opt_kwargs)
 

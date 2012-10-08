@@ -38,7 +38,7 @@ output_prefix = (
     'outprefix', ('-o', '--output-prefix'),
     {'type': str,
      'metavar': 'PREFIX',
-     'help': 'prefix for all output file'
+     'help': 'prefix for all output files'
     }
 )
 
