@@ -11,14 +11,34 @@
 __docformat__ = 'restructuredtext'
 
 import argparse
+import re
+import sys
 
 from mvpa2.base import verbose
 if __debug__:
     from mvpa2.base import debug
 from mvpa2.base.types import is_datasetlike
-from mvpa2.cmdline import common_args
+
+class HelpAction(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        helpstr = parser.format_help()
+        # better for help2man
+        helpstr = re.sub(r'optional arguments:', 'options:', helpstr)
+        # convert all heading to have the first character uppercase
+        headpat = re.compile(r'^([a-z])(.*):$',  re.MULTILINE)
+        helpstr = re.subn(headpat,
+               lambda match: r'{}{}:'.format(match.group(1).upper(),
+                                             match.group(2)),
+               helpstr)[0]
+        # usage is on the same line
+        helpstr = re.sub(r'^usage:', 'Usage:', helpstr)
+        if option_string == '--help-mrf':
+            helpstr = re.subn('\n\s+\[', ' [', helpstr)[0]
+        print helpstr
+        sys.exit(0)
 
 def parser_add_common_args(parser, pos=None, opt=None, **kwargs):
+    from mvpa2.cmdline import common_args
     for i, args in enumerate((pos, opt)):
         if args is None:
             continue
@@ -30,6 +50,16 @@ def parser_add_common_args(parser, pos=None, opt=None, **kwargs):
                 parser.add_argument(*arg_tmpl[i], **arg_kwargs)
             else:
                 parser.add_argument(arg_tmpl[i], **arg_kwargs)
+
+def parser_add_common_opt(parser, opt, names=None, **kwargs):
+    from mvpa2.cmdline import common_args
+    opt_tmpl = getattr(common_args, opt)
+    opt_kwargs = opt_tmpl[2].copy()
+    opt_kwargs.update(kwargs)
+    if names is None:
+        parser.add_argument(*arg_tmpl[1], **opt_kwargs)
+    else:
+        parser.add_argument(*names, **opt_kwargs)
 
 def _load_if_hdf5(arg):
     # just try it, who knows whether we can trust file extensions and whether
@@ -221,3 +251,67 @@ def arg2none(arg):
         raise argparse.ArgumentTypeError(
                 "'%s' cannot be converted into `None`" % arg)
 
+def arg2learner(arg, index=0):
+    from mvpa2.clfs.warehouse import clfswh
+    import os.path
+    if arg in clfswh.descriptions:
+        # arg is a description
+        return clfswh.get_by_descr(arg)
+    elif os.path.isfile(arg) and arg.endswith('.py'):
+        # arg is a script filepath
+        return script2obj(arg)
+    else:
+        # warehouse tag collection?
+        try:
+            learner = clfswh.__getitem__(*arg.split(':'))
+            if not len(learner):
+                raise argparse.ArgumentTypeError(
+                    "not match for given learner capabilities %s in the warehouse" % arg)
+            return learner[index]
+        except ValueError:
+            # unknown tag
+            raise argparse.ArgumentTypeError(
+                "'%s' is neither a known classifier description, nor a script, "
+                "nor a sequence of valid learner capabilities" % arg)
+
+def script2obj(filepath):
+    locals = {}
+    execfile(filepath, dict(), locals)
+    if not len(locals):
+        raise argparse.ArgumentTypeError(
+            "executing script '%s' did not create at least one object" % filepath)
+    elif len(locals) > 1 and not 'obj' in locals:
+        raise argparse.ArgumentTypeError(
+            "executing script '%s' " % filepath
+            + "did create multiple objects %s " % locals.keys()
+            + "but none is named 'obj'")
+    if len(locals) == 1:
+        return locals.values()[0]
+    else:
+        return locals['obj']
+
+def arg2partitioner(arg):
+    arg = arg.lower()
+    import mvpa2.generators.partition as part
+    if arg == 'oddeven':
+        return part.OddEvenPartitioner()
+    elif arg == 'half':
+        return part.HalfPartitioner()
+    elif arg.startswith('group-'):
+        ngroups = int(arg[6:])
+        return part.NGroupPartitioner(ngroups)
+    elif arg.startswith('n-'):
+        nfolds = int(arg[2:])
+        return part.NFoldPartitioner(nfolds)
+    elif os.path.isfile(arg) and arg.endswith('.py'):
+        # arg is a script filepath
+        return script2obj(arg)
+    else:
+        raise argparse.ArgumentTypeError(
+            "'%s' does not describe a supported partitioner type" % arg)
+
+def arg2hdf5compression(arg):
+    try:
+        return int(arg)
+    except:
+        return arg

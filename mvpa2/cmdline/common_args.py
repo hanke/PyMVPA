@@ -28,6 +28,12 @@ multimask = (
     {'nargs': '+'}
 )
 
+mask = (
+    'mask', ('-m', '--mask'),
+    {'help': 'single mask item'}
+)
+
+
 output_prefix = (
     'outprefix', ('-o', '--output-prefix'),
     {'type': str,
@@ -35,3 +41,36 @@ output_prefix = (
      'help': 'prefix for all output file'
     }
 )
+
+from mvpa2.cmdline.helpers import arg2learner
+classifier = (
+    'classifier', ('--clf',),
+    {'type': arg2learner,
+     'help': """select a classifier via its description in the learner
+             warehouse (see 'info' command for a listing), a colon-separated
+             list of capabilities, or by a file path to a Python script that
+             creates a classifier instance (advanced)."""
+    }
+)
+
+from mvpa2.cmdline.helpers import arg2partitioner
+partitioner = (
+    'partitioner', ('--partitioner',),
+    {'type': arg2partitioner,
+     'help': """select a partitioner. Supported arguments are: 'half' for
+             split-half, partitioning, 'oddeven' for partitioning into odd and
+             even chunks, 'group-X' where X can be any positive integer for
+             partitioning in X groups, 'n-X' where X can be any positive
+             integer for leave-X-chunks out partitioning, or a file path to a
+             Python script that creates a custom partitioner instance
+             (advanced)."""
+    }
+)
+
+from mvpa2.cmdline.helpers import arg2hdf5compression
+hdf5compression = (
+    'compression', ('--compression',),
+    dict(type=arg2hdf5compression, default=None, help="""\
+compression type for HDF5 storage. Available values depend on the specific HDF5
+installation. Typical values are: 'gzip', 'lzf', 'szip', or integers from 1 to
+9 indicating gzip compression levels."""))

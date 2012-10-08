@@ -13,11 +13,12 @@ __docformat__ = 'restructuredtext'
 
 import sys
 import argparse
+import textwrap
 import mvpa2.cmdline as mvcmd
+from mvpa2.cmdline.helpers import HelpAction
 from mvpa2.base import verbose, error
 if __debug__:
     from mvpa2.base import debug
-
 
 # what version are we talking
 from mvpa2.base.info import get_pymvpa_gitversion
@@ -36,46 +37,93 @@ def _proc_common_args(args):
     if __debug__:
         debug("CMDLINE", "Setting verbose.level to %s" % str(args.common_verbose))
     verbose.level = args.common_verbose
+    for pl in args.preload:
+        if __debug__:
+            debug("CMDLINE", "Executing preload script '%s'" % pl)
+        exec pl
+        pl.close()
 
 
 # setup cmdline args parser
 # main parser
 parser = argparse.ArgumentParser(
                 fromfile_prefix_chars='@',
-               # usage="%(prog)s ..."
+                # usage="%(prog)s ...",
+                epilog='',
+                formatter_class=argparse.RawDescriptionHelpFormatter,
+                add_help=False
             )
 # common options
+parser.add_argument('-h', '--help', '--help-mrf', nargs=0, action=HelpAction,
+                    help='show this help message and exit')
 parser.add_argument('--version', action='version',
                     version='PyMVPA %s' % pymvpa_version)
 if __debug__:
     parser.add_argument(
         '--dbg', action='append', nargs=1, type=str, dest='common_debug',
         help="enable debug channel (see 'info' command for available channels)")
+parser.add_argument(
+    '--preload', action='append', type=argparse.FileType('r'), default=list(),
+    help="""filename of a custom Python script that is executed prior to, and in
+    the same session as the actual command. This can be used to modify the
+    execution environment, for example creating a custom classifier
+    instance. This option can be given multiple times, and the associated
+    scripts are ran in order of their appearance on the command line.""")
 parser.add_argument('--verbose', action='store', nargs='?', type=int,
                     dest='common_verbose',
                     default=0, help='output verbosity level')
 
+
 # subparsers
-subparsers = parser.add_subparsers(
-                title='commands',
-                description="""\
-Detailed usage information for individual commands is availble via
-command-specific help options, i.e.: %s <command> --help""" % sys.argv[0])
+subparsers = parser.add_subparsers()
 # for all subcommand modules it can find
+cmd_short_description = []
 for cmd in sorted([c for c in dir(mvcmd) if c.startswith('cmd_')]):
     subcmdmod = getattr(__import__('mvpa2.cmdline',
                                    globals(), locals(),
                                    [cmd], -1),
                         cmd)
+    # deal with optional parser args
+    if 'parser_args' in subcmdmod.__dict__:
+        parser_args = subcmdmod.parser_args
+    else:
+        parser_args = dict()
+    # use module description, if no explicit description is available
+    if not 'description' in parser_args:
+        parser_args['description'] = subcmdmod.__doc__
     # create subparser, use module suffix as cmd name
-    subparser = subparsers.add_parser(cmd[4:], **subcmdmod.parser_args)
+    subparser = subparsers.add_parser(cmd[4:], add_help=False, **parser_args)
     # all subparser can report the version
     subparser.add_argument('--version', action='version',
                            version='PyMVPA %s' % pymvpa_version)
+    # our own custom help for all commands
+    subparser.add_argument('-h', '--help', '--help-mrf', nargs=0,
+                           action=HelpAction,
+                           help='show this help message and exit')
     # let module configure the parser
     subcmdmod.setup_parser(subparser)
     # configure 'run' function for this command
     subparser.set_defaults(func=subcmdmod.run)
+    # store short description for later
+    sdescr = getattr(subcmdmod, 'short_description',
+                     parser_args['description'].split('\n')[0])
+    cmd_short_description.append((cmd[4:], sdescr))
+
+# create command summary
+cmd_summary = []
+for cd in cmd_short_description:
+    cmd_summary.append('  %s\n%s' \
+                       % (cd[0],
+                          textwrap.fill(cd[1], 75,
+                              initial_indent=' ' * 6,
+                              subsequent_indent=' ' * 6)))
+parser.epilog = 'commands:\n%s\n\n%s' % ('\n'.join(cmd_summary),
+                            textwrap.fill("""\
+Detailed usage information for individual commands is
+available via command-specific help options, i.e.:
+%s <command> --help""" % sys.argv[0],
+                            75, initial_indent='  ',
+                            subsequent_indent='  '))
 
 # parse cmd args
 args = parser.parse_args()
