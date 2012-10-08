@@ -26,13 +26,6 @@ if __debug__:
 from mvpa2.cmdline.helpers \
         import parser_add_common_args, parser_add_common_opt
 
-# import routines specific for this analysis
-from mvpa2.datasets.mri         import map2nifti
-from mvpa2.generators.partition import NFoldPartitioner
-from mvpa2.measures.base        import CrossValidation
-from mvpa2.measures.searchlight import sphere_searchlight
-from mvpa2.misc.errorfx         import mean_match_accuracy
-from mvpa2.misc.io              import SampleAttributes
 
 import os as os  # WZ: temporary
 
@@ -136,10 +129,21 @@ def prep_nifti_ds(args):
 
 # execute core routines for the search light analysis
 def run(args):
+    # import routines specific for this analysis
+    from mvpa2.datasets.mri         import map2nifti
+    from mvpa2.generators.partition import NFoldPartitioner
+    from mvpa2.measures.base        import CrossValidation
+    from mvpa2.measures.searchlight import sphere_searchlight
+    from mvpa2.misc.errorfx         import mean_match_accuracy
+    from mvpa2.misc.io              import SampleAttributes
+
     if __debug__:
         debug('CMDLINE', "loading input data from %s" % args.data)
 
-    ds = prep_nifti_ds(args)
+
+    ds = args2datasets(args.data, args.masks)
+
+    #ds = prep_nifti_ds(args)
 
     ### select the classifier
     clf = chose_clf(args.clf)
