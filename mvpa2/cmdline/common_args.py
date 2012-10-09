@@ -16,6 +16,20 @@ __docformat__ = 'restructuredtext'
 #    {<ArgusmentParser.add_arguments_kwargs>}
 #)
 
+from mvpa2.cmdline.helpers import HelpAction
+help = (
+    'help', ('-h', '--help', '--help-np'),
+    dict(nargs=0, action=HelpAction,
+         help="""show this help message and exit. --help-np forcefully disables
+                 the use of a pager for displaying the help.""")
+)
+
+version = (
+    'version', ('--version',),
+    dict(action='version',
+         help="show program's version and license information and exit")
+)
+
 multidata = (
     'data', ('-d', '--data'),
     {'nargs': '+',
