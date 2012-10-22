@@ -109,6 +109,12 @@ txtsrc_args = ('options for input from text file', [
                 the attribute will be loaded from. Additional values modifying
                 the way the data is loaded are described in the section
                 "Load data from text files".""")),
+    ('--sa-attr', dict(type=str, metavar='FILENAME',
+        help="""load sample attribute values from an legacy 'attributes file'.
+                Column data is read as "literal". Only two column files
+                ('targets' + 'chunks') without headers are supported. This
+                option allows for reading attributes files from early PyMVPA
+                versions.""")),
 ])
 
 numpysrc_args = ('options for input from Numpy array', [
@@ -157,6 +163,11 @@ mrisrc_args = ('options for input from MR images', [
                 dimensions as an input data sample (2nd argument). The image
                 data will be added as a feature attribute under the specified
                 name."""}),
+    ('--mc-par', dict(type=str, metavar='FILENAME', help=
+                """6-column motion parameter file in FSL's McFlirt format. Six
+                additional sample attributes will be created: mc_{x,y,z} and
+                mc_rot{1-3}, for translation and rotation estimates
+                respectively.""")),
 ])
 
 
@@ -195,6 +206,21 @@ def run(args):
                         "check arguments!")
             verbose(2, "Add volumetric feature attributes: %s" % vol_attr)
         ds = fmri_dataset(args.from_mri, mask=args.mask, add_fa=vol_attr)
+    # legacy support
+    if not args.sa_attr is None:
+        from mvpa2.misc.io.base import SampleAttributes
+        smpl_attrs = SampleAttributes(args.sa_attr)
+        for a in ('targets', 'chunks'):
+            verbose(2, "Add sample attribute '%s' from sample attributes file"
+                       % a)
+            ds.sa[a] = getattr(smpl_attrs, a)
+    if not args.mc_par is None:
+        from mvpa2.misc.fsl.base import McFlirtParams
+        mc_par = McFlirtParams(args.mc_par)
+        for param in mc_par:
+            verbose(2, "Add motion regressor as sample attribute '%s'"
+                       % ('mc_' + param))
+            ds.sa['mc_' + param] = mc_par[param]
     # loop over all attribute configurations that we know
     attr_cfgs = (# var, dst_collection, loader
             ('--sa-txt', args.sa_txt, ds.sa, _load_from_txt),
@@ -226,6 +252,7 @@ def run(args):
                         raise ValueError('attribute %s' % e_str[12:])
                     else:
                         raise e
+    verbose(3, "Dataset summary %s" % (ds.summary()))
     # and store
     outfilename = args.output
     if not outfilename.endswith('.hdf5'):
