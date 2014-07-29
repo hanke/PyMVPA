@@ -153,6 +153,14 @@ class Classifier(Learner):
         #"""Stores id of the dataset on which it was trained to signal
         #in trained() if it was trained already on the same dataset"""
 
+
+    def __reduce__(self):
+        return object.__reduce__(self)
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+
+
     @property
     def __summary_class__(self):
         if 'regression' in self.__tags__:

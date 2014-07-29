@@ -282,6 +282,10 @@ class SensitivityBasedFeatureSelection(FeatureSelection):
 
         self.__train_analyzer = train_analyzer
 
+
+    def _get_init_args(self):
+         return (self.__sensitivity_analyzer,)
+
     def _get_selected_ids(self, dataset):
         """Given a dataset actually select the features
 

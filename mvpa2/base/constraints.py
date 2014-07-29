@@ -45,6 +45,20 @@ class Constraint(object):
         # used as a condensed primer for the parameter lists
         raise NotImplementedError("abstract class")
 
+class EnsureCallable(Constraint):
+    """Ensure that an input is callable.
+    """
+    def __call__(self, value):
+        if callable(value):
+            return value
+        raise ValueError("value must be callable")
+
+    def short_description(self):
+        return 'callable'
+
+    def long_description(self):
+        return "value must be callable (function, class with __call__)"
+
 class EnsureDType(Constraint):
     """Ensure that an input (or several inputs) are of a particular data type.
     """

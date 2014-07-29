@@ -20,7 +20,8 @@ from mvpa2.base.state import ClassWithCollections, ConditionalAttribute
 from mvpa2.base.collections import SampleAttributesCollection, \
      FeatureAttributesCollection, DatasetAttributesCollection
 from mvpa2.base.param import Parameter
-from mvpa2.base.constraints import EnsureNone, EnsureStr
+from mvpa2.base.constraints import \
+        EnsureNone, EnsureStr, EnsureListOf, EnsureTupleOf, EnsureCallable
 
 if __debug__:
     from mvpa2.base import debug
@@ -39,7 +40,41 @@ class Node(ClassWithCollections):
     the context of the corresponding processing in the output dataset.
     """
 
-    space = Parameter(None, constraints=EnsureNone() | EnsureStr())
+    space = Parameter(None, constraints=EnsureNone() | EnsureStr(),
+        doc="""Name of the 'processing space'. The actual meaning of this
+        argument heavily depends on the sub-class implementation. In general,
+        this is a trigger that tells the node to compute and store information
+        about the input data that is "interesting" in the context of the
+        corresponding processing in the output dataset.""")
+
+    pass_attr = Parameter(None,
+            constraints=EnsureNone() | EnsureStr() | EnsureListOf(str) \
+                        | EnsureTupleOf(str),
+        doc="""Additional attributes to pass on to an output dataset. Attributes
+        can be taken from all three attribute collections of an input dataset
+        (sa, fa, a -- see :meth:`Dataset.get_attr`), or from the collection
+        of conditional attributes (ca) of a node instance. Corresponding
+        collection name prefixes should be used to identify attributes, e.g.
+        'ca.null_prob' for the conditional attribute 'null_prob', or
+        'fa.stats' for the feature attribute stats. In addition to a plain
+        attribute identifier it is possible to use a tuple to trigger more
+        complex operations. The first tuple element is the attribute
+        identifier, as described before. The second element is the name of the
+        target attribute collection (sa, fa, or a). The third element is the
+        axis number of a multidimensional array that shall be swapped with the
+        current first axis. The fourth element is a new name that shall be
+        used for an attribute in the output dataset.
+        Example: ('ca.null_prob', 'fa', 1, 'pvalues') will take the
+        conditional attribute 'null_prob' and store it as a feature attribute
+        'pvalues', while swapping the first and second axes. Simplified
+        instructions can be given by leaving out consecutive tuple elements
+        starting from the end.""")
+
+    postproc = Parameter(None,
+            constraints=EnsureNone() | EnsureCallable(),
+        doc="""Node to perform post-processing of results. This node is applied
+        in `__call__()` to perform a final processing step on the to be
+        result dataset. If None, nothing is done.""")
 
     calling_time = ConditionalAttribute(enabled=True,
         doc="Time (in seconds) it took to call the node")
@@ -58,95 +93,45 @@ class Node(ClassWithCollections):
     # values also at class level.
     __pass_attr = None
 
-    def __init__(self, space=None, pass_attr=None, postproc=None, **kwargs):
-        """
-        Parameters
-        ----------
-        space : str, optional
-          Name of the 'processing space'. The actual meaning of this argument
-          heavily depends on the sub-class implementation. In general, this is
-          a trigger that tells the node to compute and store information about
-          the input data that is "interesting" in the context of the
-          corresponding processing in the output dataset.
-        pass_attr : str, list of str|tuple, optional
-          Additional attributes to pass on to an output dataset. Attributes can
-          be taken from all three attribute collections of an input dataset
-          (sa, fa, a -- see :meth:`Dataset.get_attr`), or from the collection
-          of conditional attributes (ca) of a node instance. Corresponding
-          collection name prefixes should be used to identify attributes, e.g.
-          'ca.null_prob' for the conditional attribute 'null_prob', or
-          'fa.stats' for the feature attribute stats. In addition to a plain
-          attribute identifier it is possible to use a tuple to trigger more
-          complex operations. The first tuple element is the attribute
-          identifier, as described before. The second element is the name of the
-          target attribute collection (sa, fa, or a). The third element is the
-          axis number of a multidimensional array that shall be swapped with the
-          current first axis. The fourth element is a new name that shall be
-          used for an attribute in the output dataset.
-          Example: ('ca.null_prob', 'fa', 1, 'pvalues') will take the
-          conditional attribute 'null_prob' and store it as a feature attribute
-          'pvalues', while swapping the first and second axes. Simplified
-          instructions can be given by leaving out consecutive tuple elements
-          starting from the end.
-        postproc : Node instance, optional
-          Node to perform post-processing of results. This node is applied
-          in `__call__()` to perform a final processing step on the to be
-          result dataset. If None, nothing is done.
-        """
+    def __init__(self, **kwargs):
         ClassWithCollections.__init__(self, **kwargs)
         if __debug__:
             debug("NO",
-                  "Init node '%s' (space: '%s', postproc: '%s')",
-                  (self.__class__.__name__, space, str(postproc)))
-        self.params.space = space          
+                  "Init node '%s')",
+                  (self.__class__.__name__,))
+        #self.params.space = space
         #self.set_space(space)
-        self.set_postproc(postproc)
-        if isinstance(pass_attr, basestring):
-            pass_attr = (pass_attr,)
-        self.__pass_attr = pass_attr
+        #self.set_postproc(postproc)
+        if self.params['pass_attr'].is_set \
+           and isinstance(self.params.pass_attr.value, basestring):
+            self.params.pass_attr = (pass_attr,)
 
     def __setstate__(self, state):
         for key in state[0].keys():
-            self.params[key].value = state[0][key] 
-        self.__dict__.update(state[1])    
+            self.params[key].value = state[0][key]
+        self.__dict__.update(state[1])
 
     def __reduce__(self):
-        
-        def para_tuple(mvpa2_object):
-            argspec = inspect.getargspec(mvpa2_object.__init__)
-            l = []
-            for k,i in enumerate(argspec[0][1:]):
-                if i in mvpa2_object.params:
-                    l.append(mvpa2_object.params[i].value)
-                elif i=='shape':
-                    l.append(mvpa2_object.params['origshape'].value)
-                elif i=='slicearg':
-                    l.append(self.__dict__['_slicearg'])
-                elif i=='nodes':
-                    l.append(self.__dict__['_nodes'])
-                else:
-                    if argspec[0][k+1] in self.__dict__:
-                        l.append(self.__dict__[argspec[0][k+1]])
-            return tuple(l)          
-                
         para_dict = dict()
-        for key in self.params.which_set():        
+        for key in self.params.which_set():
             para_dict[key]=self.params[key].value
-    
-        ### fixing stuff
-        fix_dict = {}
-        if '_outshape' in self.__dict__:
-            fix_dict.update({'_outshape':self.__dict__['_outshape']})
-        if '_dshape' in self.__dict__:
-            fix_dict.update({'_dshape':self.__dict__['_dshape']})    
-        if '_isset' in self.__dict__:
-            fix_dict.update({'_isset':self.__dict__['_isset']})
-        if '_set_retrainable' in self.__dict__:
-            fix_dict.update({'_set_retrainable':self.__dict__['_set_retrainable']})            
-        if '_Learner__is_trained' in self.__dict__:
-            fix_dict.update({'_Learner__is_trained':self.__dict__['_Learner__is_trained']}) 
-        
-        return (self.__class__, para_tuple(self), (para_dict, fix_dict))
+
+        # customization
+        inject_dict = self._get_additional_state()
+        init_args = self._get_init_args()
+
+        # sanity check: figure out all non-keyword init arguments and compare them to
+        # what the class reports
+        iargs, ivargs, ikwargs, idefaults = inspect.getargspec(self.__init__)
+        if not idefaults is None:
+            idefaults = len(idefaults) * (-1)
+        check_args = [arg for arg in iargs[1:idefaults]]
+        if len(init_args) != len(check_args):
+            raise RuntimeError("""
+            '%s' has non-parameter constructor argument and needs a
+            custom init_args specification""" % self.__class__.__name__)
+
+        return (self.__class__, init_args, (para_dict, inject_dict))
 
 
     def __call__(self, ds):
@@ -280,12 +265,12 @@ class Node(ClassWithCollections):
 
     def _apply_postproc(self, ds, result):
         """Apply any post-processing to an output dataset"""
-        if not self.__postproc is None:
+        if not self.params.postproc is None:
             if __debug__:
                 debug("NO",
-                      "Applying post-processing node %s", (self.__postproc,))
+                      "Applying post-processing node %s", (self.params.postproc,))
             self.ca.raw_results = result
-            result = self.__postproc(result)
+            result = self.params.postproc(result)
         return result
 
     def generate(self, ds):
@@ -311,7 +296,7 @@ class Node(ClassWithCollections):
 
     def get_postproc(self):
         """Returns the post-processing node or None."""
-        return self.__postproc
+        return self.params.postproc
 
 
     def set_postproc(self, node):
@@ -319,41 +304,36 @@ class Node(ClassWithCollections):
 
         Set to `None` to disable postprocessing.
         """
-        self.__postproc = node
+        self.params.postproc = node
 
     def get_space(self):
         """For backwards compapility."""
         return self.params.space
-        
+
     def set_space(self, name):
         """Set the processing space name of this node."""
         self.params.space = name
 
-        
+
 
     def __str__(self):
         return _str(self)
 
+    def _get_init_args(self):
+        # Reimplement in subclasses if they need mandatory __init__ arguments
+        return tuple()
 
-    def __repr__(self, prefixes=[]):
-        return super(Node, self).__repr__(
-            prefixes=prefixes
-            + _repr_attrs(self, ['pass_attr', 'postproc']))
-
-    pass_attr = property(lambda self: self.__pass_attr,
-                         doc="Which attributes of the dataset or self.ca "
-                         "to pass into result dataset upon call")
-
-    postproc = property(get_postproc, set_postproc,
-                        doc="Node to perform post-processing of results")
+    def _get_additional_state(self):
+        # Reimplement in subclasses if they need to recover additional state variables
+        return dict()
 
 
 class CompoundNode(Node):
-    """List of nodes. 
+    """List of nodes.
 
     A CompoundNode behaves similar to a list container: Nodes can be appended,
     and the chain can be sliced like a list, etc ...
-    
+
     Subclasses such as ChainNode and CombinedNode implement the _call
     method in different ways.
     """
@@ -501,16 +481,16 @@ class CombinedNode(CompoundNode):
         mappers : list
         combine_axis : ['h', 'v']
         a: {'unique','drop_nonunique','uniques','all'} or True or False or None (default: None)
-            Indicates which dataset attributes from datasets are stored 
-            in merged_dataset. If an int k, then the dataset attributes from 
+            Indicates which dataset attributes from datasets are stored
+            in merged_dataset. If an int k, then the dataset attributes from
             datasets[k] are taken. If 'unique' then it is assumed that any
             attribute common to more than one dataset in datasets is unique;
             if not an exception is raised. If 'drop_nonunique' then as 'unique',
-            except that exceptions are not raised. If 'uniques' then, for each 
-            attribute,  any unique value across the datasets is stored in a tuple 
-            in merged_datasets. If 'all' then each attribute present in any 
-            dataset across datasets is stored as a tuple in merged_datasets; 
-            missing values are replaced by None. If None (the default) then no 
+            except that exceptions are not raised. If 'uniques' then, for each
+            attribute,  any unique value across the datasets is stored in a tuple
+            in merged_datasets. If 'all' then each attribute present in any
+            dataset across datasets is stored as a tuple in merged_datasets;
+            missing values are replaced by None. If None (the default) then no
             attributes are stored in merged_dataset. True is equivalent to
             'drop_nonunique'. False is equivalent to None.
         """

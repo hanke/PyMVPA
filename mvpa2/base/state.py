@@ -181,7 +181,10 @@ class Collection(BaseCollection):
         """Initialize `key` (no check performed) with `value`
         """
         # by default we just set corresponding value
-        self[key]._set(value, init=True)
+        # NO WE DONT
+        # with the new contraints for parameters the entire initialization 'logic' is mind-boggeling
+        # for now I will just disable it, but proper surgery to rip it out completely is recommended
+        self[key]._set(value, init=False)
 
 
     def __repr__(self):

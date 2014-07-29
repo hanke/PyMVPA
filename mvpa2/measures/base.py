@@ -644,6 +644,9 @@ class TransferMeasure(Measure):
                         "it, or it is disabled" % measure)
         return res
 
+    def _get_init_args(self):
+        return (self.__measure, self.__splitter)
+
     measure = property(fget=lambda self:self.__measure)
     splitter = property(fget=lambda self:self.__splitter)
 
@@ -767,6 +770,8 @@ class Sensitivity(FeaturewiseMeasure):
         self.__clf = clf
         """Classifier used to computed sensitivity"""
 
+    def _get_init_args(self):
+        return (self.__clf,)
 
     def __repr__(self, prefixes=[]):
         return super(Sensitivity, self).__repr__(

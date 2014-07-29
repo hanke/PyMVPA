@@ -228,7 +228,7 @@ class Parameter(IndexedCollectable):
            ((not isarray) and different_value):
             if __debug__:
                 debug("COL",
-                      "Parameter: setting %s to %s " % (str(self), val))
+                        "Parameter: setting %s to %s (init:%s)" % (str(self), val, init))
             self._value = val
             # Set 'isset' only if not called from initialization routine
             self._isset = not init #True
