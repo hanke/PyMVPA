@@ -10,6 +10,10 @@
 
 __docformat__ = 'restructuredtext'
 
+import os
+import numpy as np
+from os.path import join as _opj
+from mvpa2.datasets.sources.openfmri import _stripext
 
 def mk_level1_fsf(
         of,
