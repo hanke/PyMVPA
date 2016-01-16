@@ -153,7 +153,9 @@ def generate_autosummary_docs(sources, output_dir=None, suffix='.rst',
                 except TemplateNotFound:
                     template = template_env.get_template('autosummary/base.rst')
 
-            def get_members(obj, typ, include_public=[]):
+            def get_members(obj, typ, include_public=None):
+                if include_public is None:
+                    include_public = []
                 items = []
                 for name in dir(obj):
                     try:

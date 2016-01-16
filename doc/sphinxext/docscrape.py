@@ -84,7 +84,9 @@ class Reader(object):
 
 
 class NumpyDocString(object):
-    def __init__(self, docstring, config={}):
+    def __init__(self, docstring, config=None):
+        if config is None:
+            config = {}
         docstring = textwrap.dedent(docstring).split('\n')
 
         self._doc = Reader(docstring)
@@ -410,7 +412,9 @@ def header(text, style='-'):
 
 
 class FunctionDoc(NumpyDocString):
-    def __init__(self, func, role='func', doc=None, config={}):
+    def __init__(self, func, role='func', doc=None, config=None):
+        if config is None:
+            config = {}
         self._f = func
         self._role = role # e.g. "func" or "meth"
 
@@ -461,7 +465,9 @@ class FunctionDoc(NumpyDocString):
 
 class ClassDoc(NumpyDocString):
     def __init__(self, cls, doc=None, modulename='', func_doc=FunctionDoc,
-                 config={}):
+                 config=None):
+        if config is None:
+            config = {}
         if not inspect.isclass(cls) and cls is not None:
             raise ValueError("Expected a class or None, but got %r" % cls)
         self._cls = cls
