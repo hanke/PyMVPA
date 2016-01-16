@@ -444,10 +444,12 @@ def get_import_prefixes_from_env(env):
 
     return prefixes
 
-def import_by_name(name, prefixes=[None]):
+def import_by_name(name, prefixes=None):
     """Import a Python object that has the given *name*, under one of the
     *prefixes*.  The first name that succeeds is used.
     """
+    if prefixes is None:
+        prefixes = [None]
     tried = []
     for prefix in prefixes:
         try:
@@ -505,12 +507,16 @@ def _import_by_name(name):
 # -- :autolink: (smart default role) -------------------------------------------
 
 def autolink_role(typ, rawtext, etext, lineno, inliner,
-                  options={}, content=[]):
+                  options=None, content=None):
     """Smart linking role.
 
     Expands to ':obj:`text`' if `text` is an object that can be imported;
     otherwise expands to '*text*'.
     """
+    if options is None:
+        options = {}
+    if content is None:
+        content = []
     env = inliner.document.settings.env
     r = env.get_domain('py').role('obj')(
         'obj', rawtext, etext, lineno, inliner, options, content)

@@ -197,7 +197,7 @@ def __assign_shogun_version():
     versions['shogun'] = ver
 
 
-def __check_shogun(bottom_version, custom_versions=[]):
+def __check_shogun(bottom_version, custom_versions=None):
     """Check if version of shogun is high enough (or custom known) to
     be enabled in the testsuite
 
@@ -209,6 +209,8 @@ def __check_shogun(bottom_version, custom_versions=[]):
       Arbitrary list of versions which could got patched for
       a specific issue
     """
+    if custom_versions is None:
+        custom_versions = []
     import shogun.Classifier as __sc
     ver = __sc.Version_get_version_revision()
     __assign_shogun_version()

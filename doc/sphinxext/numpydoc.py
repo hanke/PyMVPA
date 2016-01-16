@@ -22,8 +22,10 @@ from sphinx.util.compat import Directive
 import inspect
 
 def mangle_docstrings(app, what, name, obj, options, lines,
-                      reference_offset=[0]):
+                      reference_offset=None):
 
+    if reference_offset is None:
+        reference_offset = [0]
     cfg = dict(use_plots=app.config.numpydoc_use_plots,
                show_class_members=app.config.numpydoc_show_class_members)
 
